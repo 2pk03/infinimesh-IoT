@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dgraph-io/dgo/protos/api"
+	"github.com/dgraph-io/dgo/v200/protos/api"
 	"github.com/infinimesh/infinimesh/pkg/node/nodepb"
 	"google.golang.org/genproto/protobuf/field_mask"
 	"google.golang.org/grpc/codes"

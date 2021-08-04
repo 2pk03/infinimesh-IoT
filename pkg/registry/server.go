@@ -38,7 +38,7 @@ import (
 
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 
-	"github.com/dgraph-io/dgo"
+	dgo "github.com/dgraph-io/dgo/v200"
 )
 
 //Server is a Data type for Device Controller file

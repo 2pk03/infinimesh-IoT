@@ -18,22 +18,39 @@ package dgo
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"math/rand"
+	"net/url"
 	"strings"
 	"sync"
 
-	"github.com/dgraph-io/dgo/protos/api"
+	"github.com/dgraph-io/dgo/v200/protos/api"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
+
+var slashPort = "443"
 
 // Dgraph is a transaction aware client to a set of Dgraph server instances.
 type Dgraph struct {
 	jwtMutex sync.RWMutex
 	jwt      api.Jwt
 	dc       []api.DgraphClient
+}
+type authCreds struct {
+	token string
+}
+
+func (a *authCreds) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+	return map[string]string{"Authorization": a.token}, nil
+}
+
+func (a *authCreds) RequireTransportSecurity() bool {
+	return true
 }
 
 // NewDgraphClient creates a new Dgraph (client) for interacting with Alphas.
@@ -49,16 +66,55 @@ func NewDgraphClient(clients ...api.DgraphClient) *Dgraph {
 	return dg
 }
 
-// Login logs in the current client using the provided credentials.
-// Valid for the duration the client is alive.
-func (d *Dgraph) Login(ctx context.Context, userid string, password string) error {
+// DialSlashEndpoint creates a new TLS connection to a Slash GraphQL or Slash Enterprise backend
+// It requires the backend endpoint as well as the api key
+func DialSlashEndpoint(endpoint, key string) (*grpc.ClientConn, error) {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	urlParts := strings.SplitN(u.Host, ".", 2)
+
+	host := urlParts[0] + ".grpc." + urlParts[1] + ":" + slashPort
+	pool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, err
+	}
+
+	creds := credentials.NewClientTLSFromCert(pool, "")
+	return grpc.Dial(
+		host,
+		grpc.WithTransportCredentials(creds),
+		grpc.WithPerRPCCredentials(&authCreds{key}),
+	)
+}
+
+// DialSlashGraphQLEndpoint is deprecated, as it leaks GRPC connections.
+// Please use DialSlashEndpoint instead
+func DialSlashGraphQLEndpoint(endpoint, key string) (*Dgraph, error) {
+	conn, err := DialSlashEndpoint(endpoint, key)
+
+	if err != nil {
+		return nil, err
+	}
+
+	dc := api.NewDgraphClient(conn)
+	dg := NewDgraphClient(dc)
+
+	return dg, nil
+}
+
+func (d *Dgraph) login(ctx context.Context, userid string, password string,
+	namespace uint64) error {
 	d.jwtMutex.Lock()
 	defer d.jwtMutex.Unlock()
 
 	dc := d.anyClient()
 	loginRequest := &api.LoginRequest{
-		Userid:   userid,
-		Password: password,
+		Userid:    userid,
+		Password:  password,
+		Namespace: namespace,
 	}
 	resp, err := dc.Login(ctx, loginRequest)
 	if err != nil {
@@ -66,6 +122,26 @@ func (d *Dgraph) Login(ctx context.Context, userid string, password string) erro
 	}
 
 	return d.jwt.Unmarshal(resp.Json)
+}
+
+// GetJwt returns back the JWT for the dgraph client.
+func (d *Dgraph) GetJwt() api.Jwt {
+	d.jwtMutex.RLock()
+	defer d.jwtMutex.RUnlock()
+	return d.jwt
+}
+
+// Login logs in the current client using the provided credentials into default namespace (0).
+// Valid for the duration the client is alive.
+func (d *Dgraph) Login(ctx context.Context, userid string, password string) error {
+	return d.login(ctx, userid, password, 0)
+}
+
+// LoginIntoNamespace logs in the current client using the provided credentials.
+// Valid for the duration the client is alive.
+func (d *Dgraph) LoginIntoNamespace(ctx context.Context, userid string, password string,
+	namespace uint64) error {
+	return d.login(ctx, userid, password, namespace)
 }
 
 // Alter can be used to do the following by setting various fields of api.Operation:
@@ -89,6 +165,12 @@ func (d *Dgraph) Alter(ctx context.Context, op *api.Operation) error {
 	}
 
 	return err
+}
+
+// Relogin relogin the current client using the refresh token. This can be used when the
+// access-token gets expired.
+func (d *Dgraph) Relogin(ctx context.Context) error {
+	return d.retryLogin(ctx)
 }
 
 func (d *Dgraph) retryLogin(ctx context.Context) error {
@@ -121,11 +203,9 @@ func (d *Dgraph) getContext(ctx context.Context) context.Context {
 			// no metadata key is in the context, add one
 			md = metadata.New(nil)
 		}
-
 		md.Set("accessJwt", d.jwt.AccessJwt)
 		return metadata.NewOutgoingContext(ctx, md)
 	}
-
 	return ctx
 }
 

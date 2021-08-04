@@ -23,8 +23,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/dgraph-io/dgo"
-	"github.com/dgraph-io/dgo/protos/api"
+	dgo "github.com/dgraph-io/dgo/v200"
+	"github.com/dgraph-io/dgo/v200/protos/api"
 
 	"github.com/infinimesh/infinimesh/pkg/node/nodepb"
 )

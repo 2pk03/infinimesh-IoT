@@ -24,8 +24,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/dgraph-io/dgo"
-	"github.com/dgraph-io/dgo/protos/api"
+	dgo "github.com/dgraph-io/dgo/v200"
+	"github.com/dgraph-io/dgo/v200/protos/api"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 

@@ -19,10 +19,11 @@ package dgo
 import (
 	"context"
 
-	"github.com/dgraph-io/dgo/protos/api"
-	"github.com/dgraph-io/dgo/y"
+	"github.com/dgraph-io/dgo/v200/protos/api"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -32,6 +33,8 @@ var (
 	ErrFinished = errors.New("Transaction has already been committed or discarded")
 	// ErrReadOnly is returned when a write/update is performed on a readonly transaction
 	ErrReadOnly = errors.New("Readonly transaction cannot run mutations or be committed")
+	// ErrAborted is returned when an operation is performed on an aborted transaction.
+	ErrAborted = errors.New("Transaction has been aborted. Please retry")
 )
 
 // Txn is a single atomic transaction.
@@ -44,6 +47,9 @@ var (
 //      to Discard immediately after NewTxn.
 type Txn struct {
 	context *api.TxnContext
+
+	keys  map[string]struct{}
+	preds map[string]struct{}
 
 	finished   bool
 	mutated    bool
@@ -60,6 +66,8 @@ func (d *Dgraph) NewTxn() *Txn {
 		dg:      d,
 		dc:      d.anyClient(),
 		context: &api.TxnContext{},
+		keys:    make(map[string]struct{}),
+		preds:   make(map[string]struct{}),
 	}
 }
 
@@ -69,9 +77,6 @@ func (d *Dgraph) NewReadOnlyTxn() *Txn {
 	txn.readOnly = true
 	return txn
 }
-
-// Sequencing is no longer used
-func (txn *Txn) Sequencing(sequencing api.LinRead_Sequencing) {}
 
 // BestEffort enables best effort in read-only queries. This will ask the Dgraph Alpha
 // to try to get timestamps from memory in a best effort to reduce the number of outbound
@@ -95,14 +100,17 @@ func (txn *Txn) Query(ctx context.Context, q string) (*api.Response, error) {
 	return txn.QueryWithVars(ctx, q, nil)
 }
 
+// QueryRDF sends a query to one of the connected Dgraph instances and returns RDF response. If no
+// mutations need to be made in the same transaction, it's convenient to
+// chain the method, e.g. NewTxn().QueryRDF(ctx, "...").
+func (txn *Txn) QueryRDF(ctx context.Context, q string) (*api.Response, error) {
+	return txn.QueryRDFWithVars(ctx, q, nil)
+}
+
 // QueryWithVars is like Query, but allows a variable map to be used.
 // This can provide safety against injection attacks.
 func (txn *Txn) QueryWithVars(ctx context.Context, q string, vars map[string]string) (
 	*api.Response, error) {
-
-	if txn.finished {
-		return nil, ErrFinished
-	}
 
 	req := &api.Request{
 		Query:      q,
@@ -110,26 +118,25 @@ func (txn *Txn) QueryWithVars(ctx context.Context, q string, vars map[string]str
 		StartTs:    txn.context.StartTs,
 		ReadOnly:   txn.readOnly,
 		BestEffort: txn.bestEffort,
+		RespFormat: api.Request_JSON,
 	}
-	ctx = txn.dg.getContext(ctx)
-	resp, err := txn.dc.Query(ctx, req)
+	return txn.Do(ctx, req)
+}
 
-	if isJwtExpired(err) {
-		err = txn.dg.retryLogin(ctx)
-		if err != nil {
-			return nil, err
-		}
-		ctx = txn.dg.getContext(ctx)
-		resp, err = txn.dc.Query(ctx, req)
+// QueryRDFWithVars is like Query and returns RDF, but allows a variable map to be used.
+// This can provide safety against injection attacks.
+func (txn *Txn) QueryRDFWithVars(ctx context.Context, q string, vars map[string]string) (
+	*api.Response, error) {
+
+	req := &api.Request{
+		Query:      q,
+		Vars:       vars,
+		StartTs:    txn.context.StartTs,
+		ReadOnly:   txn.readOnly,
+		BestEffort: txn.bestEffort,
+		RespFormat: api.Request_RDF,
 	}
-
-	if err == nil {
-		if err := txn.mergeContext(resp.GetTxn()); err != nil {
-			return nil, err
-		}
-	}
-
-	return resp, err
+	return txn.Do(ctx, req)
 }
 
 // Mutate allows data stored on Dgraph instances to be modified.
@@ -140,47 +147,81 @@ func (txn *Txn) QueryWithVars(ctx context.Context, q string, vars map[string]str
 // being committed. In this case, an explicit call to Commit doesn't
 // need to be made subsequently.
 //
-// If the mutation fails, then the transaction is discarded and all future
-// operations on it will fail.
-func (txn *Txn) Mutate(ctx context.Context, mu *api.Mutation) (*api.Assigned, error) {
-	switch {
-	case txn.readOnly:
-		return nil, ErrReadOnly
-	case txn.finished:
+// If the mutation fails, then the transaction is discarded and all
+// future operations on it will fail.
+func (txn *Txn) Mutate(ctx context.Context, mu *api.Mutation) (*api.Response, error) {
+	req := &api.Request{
+		StartTs:   txn.context.StartTs,
+		Mutations: []*api.Mutation{mu},
+		CommitNow: mu.CommitNow,
+	}
+	return txn.Do(ctx, req)
+}
+
+// Do executes a query followed by one or more than one mutations.
+func (txn *Txn) Do(ctx context.Context, req *api.Request) (*api.Response, error) {
+	if txn.finished {
 		return nil, ErrFinished
 	}
 
-	txn.mutated = true
-	mu.StartTs = txn.context.StartTs
+	if len(req.Mutations) > 0 {
+		if txn.readOnly {
+			return nil, ErrReadOnly
+		}
+		txn.mutated = true
+	}
+
 	ctx = txn.dg.getContext(ctx)
-	ag, err := txn.dc.Mutate(ctx, mu)
+	req.StartTs = txn.context.StartTs
+	req.Hash = txn.context.Hash
+
+	// Append the GRPC Response headers to the responses. Needed for Slash.
+	appendHdr := func(hdrs *metadata.MD, resp *api.Response) {
+		if resp != nil {
+			resp.Hdrs = make(map[string]*api.ListOfString)
+			for k, v := range *hdrs {
+				resp.Hdrs[k] = &api.ListOfString{Value: v}
+			}
+		}
+	}
+
+	var responseHeaders metadata.MD
+	resp, err := txn.dc.Query(ctx, req, grpc.Header(&responseHeaders))
+	appendHdr(&responseHeaders, resp)
+
 	if isJwtExpired(err) {
 		err = txn.dg.retryLogin(ctx)
 		if err != nil {
 			return nil, err
 		}
+
 		ctx = txn.dg.getContext(ctx)
-		ag, err = txn.dc.Mutate(ctx, mu)
+		var responseHeaders metadata.MD
+		resp, err = txn.dc.Query(ctx, req, grpc.Header(&responseHeaders))
+		appendHdr(&responseHeaders, resp)
 	}
 
-	if err != nil {
+	if err == nil {
+		if req.CommitNow {
+			txn.finished = true
+		}
+
+		err = txn.mergeContext(resp.GetTxn())
+		return resp, err
+	}
+
+	if len(req.Mutations) > 0 {
 		// Ignore error, user should see the original error.
 		_ = txn.Discard(ctx)
 
 		// If the transaction was aborted, return the right error
 		// so the caller can handle it.
 		if s, ok := status.FromError(err); ok && s.Code() == codes.Aborted {
-			err = y.ErrAborted
+			err = ErrAborted
 		}
-
-		return nil, err
 	}
 
-	if mu.CommitNow {
-		txn.finished = true
-	}
-	err = txn.mergeContext(ag.Context)
-	return ag, err
+	return nil, err
 }
 
 // Commit commits any mutations that have been made in the transaction.
@@ -200,7 +241,7 @@ func (txn *Txn) Commit(ctx context.Context) error {
 
 	err := txn.commitOrAbort(ctx)
 	if s, ok := status.FromError(err); ok && s.Code() == codes.Aborted {
-		err = y.ErrAborted
+		err = ErrAborted
 	}
 
 	return err
@@ -225,14 +266,21 @@ func (txn *Txn) mergeContext(src *api.TxnContext) error {
 		return nil
 	}
 
+	txn.context.Hash = src.Hash
+
 	if txn.context.StartTs == 0 {
 		txn.context.StartTs = src.StartTs
 	}
 	if txn.context.StartTs != src.StartTs {
 		return errors.New("StartTs mismatch")
 	}
-	txn.context.Keys = append(txn.context.Keys, src.Keys...)
-	txn.context.Preds = append(txn.context.Preds, src.Preds...)
+
+	for _, key := range src.Keys {
+		txn.keys[key] = struct{}{}
+	}
+	for _, pred := range src.Preds {
+		txn.preds[pred] = struct{}{}
+	}
 	return nil
 }
 
@@ -243,6 +291,16 @@ func (txn *Txn) commitOrAbort(ctx context.Context) error {
 	txn.finished = true
 	if !txn.mutated {
 		return nil
+	}
+
+	txn.context.Keys = make([]string, 0, len(txn.keys))
+	for key := range txn.keys {
+		txn.context.Keys = append(txn.context.Keys, key)
+	}
+
+	txn.context.Preds = make([]string, 0, len(txn.preds))
+	for pred := range txn.preds {
+		txn.context.Preds = append(txn.context.Preds, pred)
 	}
 
 	ctx = txn.dg.getContext(ctx)

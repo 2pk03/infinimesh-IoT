@@ -20,7 +20,7 @@ package node
 import (
 	"context"
 
-	"github.com/dgraph-io/dgo"
+	dgo "github.com/dgraph-io/dgo/v200"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

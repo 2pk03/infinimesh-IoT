@@ -4,9 +4,8 @@ if [ -z $GOPATH ]; then
     echo "Error: the GOPATH environment variable is not set"; exit 1
 fi
 
-source $GOPATH/src/github.com/dgraph-io/dgraph/contrib/scripts/functions.sh
 function run {
-  go test -short=true $@ |\
+  go test -v -short=true $@ |\
 		GREP_COLORS='mt=01;32' egrep --line-buffered --color=always '^ok\ .*|$' |\
 		GREP_COLORS='mt=00;38;5;226' egrep --line-buffered --color=always '^\?\ .*|$' |\
 		GREP_COLORS='mt=01;31' egrep --line-buffered --color=always '.*FAIL.*|$'
@@ -30,10 +29,8 @@ function runAll {
 # For piped commands return non-zero status if any command
 # in the pipe returns a non-zero status
 set -o pipefail
-restartCluster
 echo "Running tests. Ignoring vendor folder."
 runAll || exit $?
-stopCluster
 
 
 

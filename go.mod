@@ -1,6 +1,6 @@
 module github.com/infinimesh/infinimesh
 
-go 1.14
+go 1.16
 
 require (
 	github.com/Pallinder/go-randomdata v1.1.0
@@ -10,14 +10,12 @@ require (
 	github.com/avast/retry-go v2.2.0+incompatible
 	github.com/birdayz/conjungo v1.0.1-0.20181127234741-4eb7246db343
 	github.com/cskr/pubsub v1.0.2
-	github.com/dgraph-io/dgo v1.0.0
-	github.com/dgraph-io/dgo/v200 v200.0.0-20210401091508-95bfd74de60e // indirect
+	github.com/dgraph-io/dgo/v200 v200.0.0-20210401091508-95bfd74de60e
 	github.com/eapache/go-resiliency v1.1.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/evanphx/json-patch v4.1.0+incompatible
 	github.com/fatih/color v1.7.0 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/protobuf v1.4.2
