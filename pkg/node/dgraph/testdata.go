@@ -37,32 +37,26 @@ func ImportSchema(dg *dgo.Dgraph, drop bool) error {
 		}
 	}
 	schema := `
-	[0x0] <cid>: int .
-	[0x0] <kind>:string @index(exact) . 
-	[0x0] <name>:string @index(exact) . 
-	[0x0] <owns>:[uid] @reverse @reverse . 
-	[0x0] <tags>:[string] . 
-	[0x0] <type>:string @index(exact) . 
-	[0x0] <isRoot>:bool @index(bool) . 
-	[0x0] <enabled>:bool @index(bool) . 
-	[0x0] <isAdmin>:bool @index(bool) . 
-	[0x0] <password>:password . 
-	[0x0] <pem_data>:string . 
-	[0x0] <username>:string @index(exact) . 
-	[0x0] <dgraph.type>:[string] @index(exact) . 
-	[0x0] <fingerprint>:string @index(exact) . 
-	[0x0] <certificates>:[uid] @reverse . 
-	[0x0] <dgraph.drop.op>:string . 
-	[0x0] <has.credentials>:[uid] @reverse . 
-	[0x0] <markfordeletion>:bool @index(bool) . 
-	[0x0] <retentionperiod>:int @index(int) . 
-	[0x0] <default.namespace>:[uid] . 
-	[0x0] <dgraph.graphql.xid>:string @index(exact) @upsert . 
-	[0x0] <access.to.namespace>:[uid] . 
-	[0x0] <deleteinitiationtime>:datetime . 
-	[0x0] <fingerprint.algorithm>:string . 
-	[0x0] <dgraph.graphql.p_query>:string @index(sha256) . `
-
+  tags: [string] .
+  name: string @index(exact) .
+  username: string @index(exact) .
+  enabled: bool @index(bool) .
+  isRoot: bool @index(bool) .
+  isAdmin: bool @index(bool) .
+  markfordeletion: bool @index(bool) .
+  deleteinitiationtime: datetime @index(day) .
+  retentionperiod: int @index(int) .
+  action: string @index(term) .
+  type: string @index(exact) .
+  access.to: uid @reverse .
+  children: uid @reverse .
+  owns: uid @reverse .
+  kind: string @index(exact) .
+  has.credentials: uid @reverse .
+  access.to.namespace: uid @reverse .
+  fingerprint: string @index(exact) .
+  certificates: uid @reverse .
+  password: password .`
 	fmt.Println("Apply Dgraph schema", schema)
 	return dg.Alter(context.Background(), &api.Operation{
 		Schema: schema,
