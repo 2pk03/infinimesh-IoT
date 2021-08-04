@@ -9,8 +9,8 @@ import (
 	"flag"
 
 	retry "github.com/avast/retry-go"
-	"github.com/dgraph-io/dgo"
-	"github.com/dgraph-io/dgo/protos/api"
+	dgo "github.com/dgraph-io/dgo/v200"
+	"github.com/dgraph-io/dgo/v200/protos/api"
 	"google.golang.org/grpc"
 
 	"os"
