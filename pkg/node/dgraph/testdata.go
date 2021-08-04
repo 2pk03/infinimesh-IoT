@@ -37,26 +37,31 @@ func ImportSchema(dg *dgo.Dgraph, drop bool) error {
 		}
 	}
 	schema := `
-  tags: [string] .
-  name: string @index(exact) .
-  username: string @index(exact) .
-  enabled: bool @index(bool) .
-  isRoot: bool @index(bool) .
-  isAdmin: bool @index(bool) .
-  markfordeletion: bool @index(bool) .
-  deleteinitiationtime: datetime @index(day) .
-  retentionperiod: int @index(int) .
-  action: string @index(term) .
-  type: string @index(exact) .
-  access.to: uid @reverse .
-  children: uid @reverse .
-  owns: uid @reverse .
-  kind: string @index(exact) .
-  has.credentials: uid @reverse .
-  access.to.namespace: uid @reverse .
-  fingerprint: string @index(exact) .
-  certificates: uid @reverse .
-  password: password .`
+	<cid>: int .
+	<kind>:string @index(exact) . 
+	<name>:string @index(exact) . 
+	<owns>:[uid] @reverse @reverse . 
+	<tags>:[string] . 
+	<type>:string @index(exact) . 
+	<isRoot>:bool @index(bool) . 
+	<enabled>:bool @index(bool) . 
+	<isAdmin>:bool @index(bool) . 
+	<password>:password . 
+	<pem_data>:string . 
+	<username>:string @index(exact) . 
+	<dgraph.type>:[string] @index(exact) . 
+	<fingerprint>:string @index(exact) . 
+	<certificates>:[uid] @reverse . 
+	<dgraph.drop.op>:string . 
+	<has.credentials>:[uid] @reverse . 
+	<markfordeletion>:bool @index(bool) . 
+	<retentionperiod>:int @index(int) . 
+	<default.namespace>:[uid] . 
+	<dgraph.graphql.xid>:string @index(exact) @upsert . 
+	<access.to.namespace>:[uid] . 
+	<deleteinitiationtime>:datetime . 
+	<fingerprint.algorithm>:string .`
+
 	fmt.Println("Apply Dgraph schema", schema)
 	return dg.Alter(context.Background(), &api.Operation{
 		Schema: schema,
