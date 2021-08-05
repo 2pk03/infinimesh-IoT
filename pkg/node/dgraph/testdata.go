@@ -40,7 +40,7 @@ func ImportSchema(dg *dgo.Dgraph, drop bool) error {
 	<cid>: int .
 	<kind>:string @index(exact) . 
 	<name>:string @index(exact) . 
-	<owns>:[uid] @reverse @reverse . 
+	<owns>:[uid] @reverse . 
 	<tags>:[string] . 
 	<type>:string @index(exact) . 
 	<isRoot>:bool @index(bool) . 
