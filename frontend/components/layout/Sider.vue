@@ -80,6 +80,12 @@ export default {
           link: "/dashboard/namespaces",
           admin: true,
         },
+                {
+          title: "Objects",
+          icon: "mdi-arrange-send-backward",
+          link: "/dashboard/objects",
+          admin: true,
+        },
       ],
     };
   },
