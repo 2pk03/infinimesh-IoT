@@ -40,7 +40,7 @@ func ImportSchema(dg *dgo.Dgraph, drop bool) error {
 	<cid>: int .
 	<kind>:string @index(exact) . 
 	<name>:string @index(exact) . 
-	<owns>:[uid] @reverse . 
+	<owns>:[uid] @count @reverse . 
 	<tags>:[string] . 
 	<type>:string @index(exact) . 
 	<isRoot>:bool @index(bool) . 
@@ -51,14 +51,14 @@ func ImportSchema(dg *dgo.Dgraph, drop bool) error {
 	<username>:string @index(exact) . 
 	<dgraph.type>:[string] @index(exact) . 
 	<fingerprint>:string @index(exact) . 
-	<certificates>:[uid] @reverse . 
+	<certificates>:[uid] @count @reverse . 
 	<dgraph.drop.op>:string . 
-	<has.credentials>:[uid] @reverse . 
+	<has.credentials>:[uid] @count @reverse . 
 	<markfordeletion>:bool @index(bool) . 
 	<retentionperiod>:int @index(int) . 
-	<default.namespace>:[uid] . 
+	<default.namespace>:[uid] @count . 
 	<dgraph.graphql.xid>:string @index(exact) @upsert . 
-	<access.to.namespace>:[uid] . 
+	<access.to.namespace>:[uid] @count . 
 	<deleteinitiationtime>:datetime . 
 	<fingerprint.algorithm>:string .`
 
