@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/dgraph-io/dgo/v200/protos/api"
+	"github.com/dgraph-io/dgo/v210/protos/api"
 
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -32,7 +32,7 @@ import (
 	"github.com/infinimesh/infinimesh/pkg/registry/registrypb"
 	"github.com/infinimesh/infinimesh/pkg/repo"
 
-	dgo "github.com/dgraph-io/dgo/v200"
+	dgo "github.com/dgraph-io/dgo/v210"
 	logger "github.com/infinimesh/infinimesh/pkg/log"
 )
 

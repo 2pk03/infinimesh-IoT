@@ -25,7 +25,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/dgraph-io/dgo/v200/protos/api"
+	"github.com/dgraph-io/dgo/v210/protos/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -66,9 +66,38 @@ func NewDgraphClient(clients ...api.DgraphClient) *Dgraph {
 	return dg
 }
 
-// DialSlashEndpoint creates a new TLS connection to a Slash GraphQL or Slash Enterprise backend
-// It requires the backend endpoint as well as the api key
+// DialSlashEndpoint is deprecated. It will be removed in the 21.07 release.
+// Use DialCloud to connect to Dgraph Cloud backend.
 func DialSlashEndpoint(endpoint, key string) (*grpc.ClientConn, error) {
+	return DialCloud(endpoint, key)
+}
+
+// DialSlashGraphQLEndpoint is deprecated, as it leaks GRPC connections.
+// It will be removed in the 21.07 release. Please use DialCloudEndpoint instead.
+func DialSlashGraphQLEndpoint(endpoint, key string) (*Dgraph, error) {
+	conn, err := DialSlashEndpoint(endpoint, key)
+
+	if err != nil {
+		return nil, err
+	}
+
+	dc := api.NewDgraphClient(conn)
+	dg := NewDgraphClient(dc)
+
+	return dg, nil
+}
+
+// DialCloud creates a new TLS connection to a Dgraph Cloud backend
+/* 	It requires the backend endpoint as well as the api token
+ 	Usage:
+		conn, err := grpc.DialCloud("CLOUD_ENDPOINT","API_TOKEN")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer conn.Close()
+		DgraphClient := dgo.NewDgraphClient(api.NewDgraphClient(conn))
+*/
+func DialCloud(endpoint, key string) (*grpc.ClientConn, error) {
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, err
@@ -88,21 +117,6 @@ func DialSlashEndpoint(endpoint, key string) (*grpc.ClientConn, error) {
 		grpc.WithTransportCredentials(creds),
 		grpc.WithPerRPCCredentials(&authCreds{key}),
 	)
-}
-
-// DialSlashGraphQLEndpoint is deprecated, as it leaks GRPC connections.
-// Please use DialSlashEndpoint instead
-func DialSlashGraphQLEndpoint(endpoint, key string) (*Dgraph, error) {
-	conn, err := DialSlashEndpoint(endpoint, key)
-
-	if err != nil {
-		return nil, err
-	}
-
-	dc := api.NewDgraphClient(conn)
-	dg := NewDgraphClient(dc)
-
-	return dg, nil
 }
 
 func (d *Dgraph) login(ctx context.Context, userid string, password string,
