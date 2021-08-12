@@ -19,6 +19,8 @@ module.exports = {
     ]
   },
   plugins: ["@/plugins/ant-design-vue"],
+  // Auto import components: https://go.nuxtjs.dev/config-components
+  components: true,
   /*
    ** Customize the progress bar color
    */
