@@ -254,13 +254,13 @@ func TestLogActivity_Success(t *testing.T) {
 func TestGetActivity_FailsOn_Keys(t *testing.T) {
 	f := newSessionsFixture(t, nil, nil)
 
-	res := redis.NewStringSliceCmd(context.Background())
-	res.SetErr(assert.AnError)
+	scan := redis.NewScanCmd(context.Background(), nil)
+	scan.SetErr(assert.AnError)
 
 	f.mocks.rdb.On(
-		"Keys", context.Background(),
-		mock.Anything).
-		Return(res)
+		"Scan", context.Background(),
+		uint64(0), mock.Anything, int64(100)).
+		Return(scan)
 
 	_, err := f.sh.GetActivity("account")
 	assert.Equal(t, assert.AnError, err)
@@ -269,16 +269,16 @@ func TestGetActivity_FailsOn_Keys(t *testing.T) {
 func TestGetActivity_FailsOn_MGet(t *testing.T) {
 	f := newSessionsFixture(t, nil, nil)
 
-	keysCmd := redis.NewStringSliceCmd(context.Background())
-	keysCmd.SetVal([]string{"key"})
+	scan := redis.NewScanCmd(context.Background(), nil)
+	scan.SetVal([]string{"key"}, 0)
 
 	res := redis.NewSliceCmd(context.Background())
 	res.SetErr(assert.AnError)
 
 	f.mocks.rdb.On(
-		"Keys", context.Background(),
-		mock.Anything).
-		Return(keysCmd)
+		"Scan", context.Background(),
+		uint64(0), mock.Anything, int64(100)).
+		Return(scan)
 
 	f.mocks.rdb.On(
 		"MGet", context.Background(),
@@ -292,16 +292,16 @@ func TestGetActivity_FailsOn_MGet(t *testing.T) {
 func TestGetActivity_FailsOn_InvalidDataType(t *testing.T) {
 	f := newSessionsFixture(t, nil, nil)
 
-	keysCmd := redis.NewStringSliceCmd(context.Background())
-	keysCmd.SetVal([]string{"key"})
+	scan := redis.NewScanCmd(context.Background(), nil)
+	scan.SetVal([]string{"key"}, 0)
 
 	res := redis.NewSliceCmd(context.Background())
 	res.SetVal([]interface{}{1})
 
 	f.mocks.rdb.On(
-		"Keys", context.Background(),
-		mock.Anything).
-		Return(keysCmd)
+		"Scan", context.Background(),
+		uint64(0), mock.Anything, int64(100)).
+		Return(scan)
 
 	f.mocks.rdb.On(
 		"MGet", context.Background(),
@@ -315,16 +315,16 @@ func TestGetActivity_FailsOn_InvalidDataType(t *testing.T) {
 func TestGetActivity_FailsOn_InvalidDataTypeOn_Atoi(t *testing.T) {
 	f := newSessionsFixture(t, nil, nil)
 
-	keysCmd := redis.NewStringSliceCmd(context.Background())
-	keysCmd.SetVal([]string{"key"})
+	scan := redis.NewScanCmd(context.Background(), nil)
+	scan.SetVal([]string{"key"}, 0)
 
 	res := redis.NewSliceCmd(context.Background())
 	res.SetVal([]interface{}{"string"})
 
 	f.mocks.rdb.On(
-		"Keys", context.Background(),
-		mock.Anything).
-		Return(keysCmd)
+		"Scan", context.Background(),
+		uint64(0), mock.Anything, int64(100)).
+		Return(scan)
 
 	f.mocks.rdb.On(
 		"MGet", context.Background(),
@@ -338,16 +338,16 @@ func TestGetActivity_FailsOn_InvalidDataTypeOn_Atoi(t *testing.T) {
 func TestGetActivity_Success(t *testing.T) {
 	f := newSessionsFixture(t, nil, nil)
 
-	keysCmd := redis.NewStringSliceCmd(context.Background())
-	keysCmd.SetVal([]string{"sessions:account:session:key"})
+	scan := redis.NewScanCmd(context.Background(), nil)
+	scan.SetVal([]string{"sessions:account:session:key"}, 0)
 
 	res := redis.NewSliceCmd(context.Background())
 	res.SetVal([]interface{}{"1"})
 
 	f.mocks.rdb.On(
-		"Keys", context.Background(),
-		mock.Anything).
-		Return(keysCmd)
+		"Scan", context.Background(),
+		uint64(0), mock.Anything, int64(100)).
+		Return(scan)
 
 	f.mocks.rdb.On(
 		"MGet", context.Background(),

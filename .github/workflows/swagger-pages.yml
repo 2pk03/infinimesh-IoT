@@ -1,31 +1,26 @@
-name: Swagger UI
+name: Publish Swagger UI
 
 on:
-  workflow_run:
-    workflows:
-      - tests
-    branches:
-      - master
-    types:
-      - completed
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  wait-for-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check Tests
-        uses: ahmadnassri/action-workflow-run-wait@v1
-  
-  gen-and-publush:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Generate Swagger UI
         uses: Legion2/swagger-ui-action@v1
         with:
           output: swagger-ui
           spec-file: api.swagger.json
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:

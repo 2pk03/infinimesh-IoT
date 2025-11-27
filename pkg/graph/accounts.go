@@ -495,6 +495,11 @@ func (c *AccountsController) GetCredentials(ctx context.Context, request *connec
 	return connect.NewResponse(&pb.GetCredentialsResponse{Credentials: creds}), nil
 }
 
+func (c *AccountsController) DeleteCredentials(ctx context.Context, req *connect.Request[pb.DeleteCredentialsRequest]) (*connect.Response[pb.DeleteResponse], error) {
+	// TODO: implement credentials deletion; for now, surface unimplemented to satisfy interface
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("DeleteCredentials not implemented"))
+}
+
 // Set Account Credentials, ensure account has only one credentials document linked per credentials type
 func (ctrl *AccountsController) _SetCredentials(ctx context.Context, acc Account, edge driver.Collection, c credentials.Credentials) error {
 	key := c.Type() + "-" + acc.Key

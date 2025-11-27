@@ -76,7 +76,7 @@ func NewAuthInterceptor(log *zap.Logger, _rdb *redis.Client, _jwth JWTHandler, s
 func (i *interceptor) MakeToken(account string) (string, error) {
 	claims := jwt.MapClaims{}
 	claims[infinimesh.INFINIMESH_ACCOUNT_CLAIM] = account
-	claims[infinimesh.INFINIMESH_ROOT_CLAIM] = 4
+	claims[infinimesh.INFINIMESH_ROOT_CLAIM] = true
 	claims[infinimesh.INFINIMESH_NOSESSION_CLAIM] = true
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

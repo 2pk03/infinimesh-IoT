@@ -18,7 +18,9 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"net/http"
+	"os"
 	"strings"
 
 	logger "github.com/infinimesh/infinimesh/pkg/log"
@@ -43,6 +45,7 @@ var (
 	corsAllowed []string
 	secure      bool
 	with_block  bool
+	caFile      string
 )
 
 func init() {
@@ -53,6 +56,7 @@ func init() {
 	viper.SetDefault("APISERVER_HOST", "proxy:8000")
 	viper.SetDefault("SECURE", false)
 	viper.SetDefault("WITH_BLOCK", false)
+	viper.SetDefault("APISERVER_CA_FILE", "")
 
 	apiserver = viper.GetString("APISERVER_HOST")
 	corsAllowedIn := viper.GetString("CORS_ALLOWED")
@@ -61,6 +65,7 @@ func init() {
 	}
 	secure = viper.GetBool("SECURE")
 	with_block = viper.GetBool("WITH_BLOCK")
+	caFile = viper.GetString("APISERVER_CA_FILE")
 }
 
 func main() {
@@ -75,7 +80,23 @@ func main() {
 	gwmux := runtime.NewServeMux()
 	creds := insecure.NewCredentials()
 	if secure {
-		creds = credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})
+		tlsConfig := &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+
+		if caFile != "" {
+			caData, err := os.ReadFile(caFile)
+			if err != nil {
+				log.Fatal("Failed to read APISERVER CA file", zap.String("file", caFile), zap.Error(err))
+			}
+			cp := x509.NewCertPool()
+			if !cp.AppendCertsFromPEM(caData) {
+				log.Fatal("Failed to append CA certificate", zap.String("file", caFile))
+			}
+			tlsConfig.RootCAs = cp
+		}
+
+		creds = credentials.NewTLS(tlsConfig)
 	}
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
 

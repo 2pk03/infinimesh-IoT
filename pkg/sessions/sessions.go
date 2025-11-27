@@ -104,12 +104,27 @@ func (s *sessionsHandler) LogActivity(account, sid string, exp int64) error {
 	return s.rdb.Set(context.Background(), fmt.Sprintf("sessions:activity:%s:%s", account, sid), time.Now().Unix(), time.Until(time.Unix(exp, 0))).Err()
 }
 func (s *sessionsHandler) GetActivity(account string) (map[string]*timestamppb.Timestamp, error) {
-	keys, err := s.rdb.Keys(context.Background(), fmt.Sprintf("sessions:activity:%s:*", account)).Result()
-	if err != nil {
-		return nil, err
+	ctx := context.Background()
+	var (
+		keys   []string
+		cursor uint64
+	)
+	for {
+		batch, next, err := s.rdb.Scan(ctx, cursor, fmt.Sprintf("sessions:activity:%s:*", account), 100).Result()
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, batch...)
+		if next == 0 {
+			break
+		}
+		cursor = next
+	}
+	if len(keys) == 0 {
+		return map[string]*timestamppb.Timestamp{}, nil
 	}
 
-	data, err := s.rdb.MGet(context.Background(), keys...).Result()
+	data, err := s.rdb.MGet(ctx, keys...).Result()
 	if err != nil {
 		return nil, err
 	}

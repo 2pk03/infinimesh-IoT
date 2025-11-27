@@ -6,6 +6,13 @@ coverage
 CronJobs/bkp.yaml
 .idea
 
+# Local Go/build caches
+.gocache
+.gomodcache
+
+# buf caches
+.cache/buf
+
 # Ignore auto-generated coverage files
 cover.out
 cover.html

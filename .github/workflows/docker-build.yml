@@ -1,0 +1,91 @@
+name: Docker Build
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-r[0-9]+"
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_TAG: ${{ github.ref_name == 'master' && 'latest' || github.ref_name }}
+  IMAGE_REPO: ${{ github.repository }}
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      tags: ${{ steps.tags.outputs.list }}
+      version: ${{ steps.version.outputs.value }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Discover Docker targets
+        id: tags
+        run: |
+          TAGS_JSON=$(ls Dockerfiles | jq -cnR '[inputs | select(length>0)]')
+          echo "list=$TAGS_JSON" >> "$GITHUB_OUTPUT"
+
+      - name: Get latest version tag
+        id: version
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 --always)
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tag: ${{ fromJson(needs.discover.outputs.tags) }}
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}/${{ matrix.tag }}
+          tags: type=raw,value=${{ env.IMAGE_TAG }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: .
+          file: Dockerfiles/${{ matrix.tag }}/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            IMAGE_TAG=${{ env.IMAGE_TAG }}
+            INFINIMESH_VERSION_TAG=${{ needs.discover.outputs.version }}
+
+      - name: Publish summary
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "### :whale: Published ${{ matrix.tag }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ steps.build.outputs.imageid }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
