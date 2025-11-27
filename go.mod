@@ -84,7 +84,3 @@ require (
 )
 
 replace github.com/infinimesh/proto => ./third_party/infinimesh-proto
-
-replace golang.org/x/crypto => golang.org/x/crypto v0.22.0
-
-replace golang.org/x/sys => golang.org/x/sys v0.20.0
