@@ -5,9 +5,8 @@ RUN apk add upx
 WORKDIR /go/src/github.com/infinimesh/infinimesh
 COPY go.mod go.sum ./
 COPY third_party ./third_party
-RUN GOPROXY=https://proxy.golang.org,direct go mod download
-
 COPY . .
+RUN GOPROXY=https://proxy.golang.org,direct go mod download
 RUN CGO_ENABLED=0 go build -ldflags="-s -w -X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn" -buildvcs=false ./cmd/handsfree
 RUN upx ./handsfree
 
