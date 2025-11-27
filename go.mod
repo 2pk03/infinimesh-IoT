@@ -1,6 +1,6 @@
 module github.com/infinimesh/infinimesh
 
-go 1.22
+go 1.24.0
 
 require (
 	github.com/Pallinder/go-randomdata v1.2.0
@@ -84,3 +84,7 @@ require (
 )
 
 replace github.com/infinimesh/proto => ./third_party/infinimesh-proto
+
+replace golang.org/x/crypto => golang.org/x/crypto v0.22.0
+
+replace golang.org/x/sys => golang.org/x/sys v0.20.0
