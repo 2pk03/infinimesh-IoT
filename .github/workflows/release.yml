@@ -1,0 +1,46 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-r[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare release notes from changelog
+        id: notes
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          NOTES="Release notes not found in CHANGELOG.md for ${TAG}"
+          if grep -q "^## ${TAG}" CHANGELOG.md; then
+            NOTES=$(awk -v tag="## ${TAG}" '
+              $0 ~ /^## / {
+                if (found && !first) exit
+                first=0
+                found = ($0 == tag)
+                next
+              }
+              found { print }
+            ' CHANGELOG.md)
+          fi
+          NOTES="${NOTES//$'\n'/%0A}"
+          echo "body=${NOTES}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          body: ${{ steps.notes.outputs.body }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

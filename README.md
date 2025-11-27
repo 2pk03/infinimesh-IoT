@@ -1,60 +1,51 @@
-# infinimesh IoT Platform
+# Infinimesh IoT Platform
 
-infinimesh is a opinionated multi-tenant hyperscale Internet of Things platform to connect IoT devices fast and securely with minimal TCO. It features a unique Graph-based authorization system, allowing users & engineers to create arbitrary hierarchical ontologies, with the possibility to scope permissions down to single sub-devices to specific users (e.g. suppliers). It exposes simple to consume RESTful & gRPC APIs with both high-level (e.g. device shadow) and low-level (sending messages) concepts. The infinimesh IoT platform is open source and fully kubernetes compliant. No vendor lock-in - **run it yourself on Kubernetes in your own datacenter, under your control with maximum data privacy.**
+Infinimesh is an open IoT platform for device registry, auth, shadow sync, MQTT bridge, and REST/gRPC/Connect APIs. It is multi-tenant, graph-based for fine-grained access, and runs anywhere (Kubernetes/Docker) with no vendor lock-in.
 
-Our API's (REST / gRPC / ConnectRPC) are considered as beta and may change in future. infinimesh has already available:  
-  
-- **MQTT support for version 3 and 5**
-- **State management (digital twin)**  
-- **Graph-based permission management (multi-dimensional permissons at data layer)**  
-- **TLS 1.2 / 1.3 support**  
-- **Device-to-Cloud and Cloud-to-Device messages**  
-- **Enhanced UI**  
+Our APIs (REST / gRPC / ConnectRPC) are considered beta and may change. Infinimesh already includes:
+
+- **MQTT 3 & 5 support**
+- **State management (digital twin)**
+- **Graph-based permission management**
+- **TLS 1.2 / 1.3 support**
+- **Device-to-Cloud and Cloud-to-Device messages**
+- **Enhanced UI**
 - **k8s and Docker environments**
 
-## Documentation  
+## Documentation
 
-Check out our:
-
-- [Wiki here](https://github.com/infinimesh/infinimesh/wiki).
-- [Swagger UI](https://infinimesh.github.io/infinimesh/) **soon to be deprecated**
+- [Wiki](https://github.com/infinimesh/infinimesh/wiki)
+- Swagger UI (published via GitHub Pages)
 
 ## Build status
 
-[![CI(Build Docker images)](https://github.com/infinimesh/infinimesh/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/infinimesh/infinimesh/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/infinimesh/infinimesh)](https://goreportcard.com/report/github.com/infinimesh/infinimesh)
+
+## Releases
+
+- Current version: `v2.5` (see `CHANGELOG.md`).
+
+## Protobufs
+
+Protos are vendored at `third_party/infinimesh-proto` (mapped via `replace` in `go.mod`). To edit/regenerate:
+
+```bash
+cd third_party/infinimesh-proto
+buf mod update
+buf generate
+```
+
+See `third_party/infinimesh-proto/README.md` for tool requirements.
+
+## Client libraries
+
+We vendor the protobuf module and ship generated Go stubs. Generate clients for other languages from `third_party/infinimesh-proto` or fetch prebuilt packages that match these schemas.
 
 ## Community
 
 You can reach out to the community via Discord.
 
 ![](http://invidget.switchblade.xyz/801798988163448832)
-
-## Client libraries
-
-The recommended way to interact with infinimesh API is gRPC and ConnectRPC. Thus, we provide protobuf files at [`infinimesh/proto`](https://github.com/infinimesh/proto), using which you can generate a client library for your programming language of choice.
-
-Additionally, we have pregenerated libraries:
-
-### Golang
-
-Can be added to your project via:
-
-```shell
-go get github.com/infinimesh/proto@latest
-```
-
-### JS
-
-Can be obtained from npm via:
-
-```shell
-npm install infinimesh-proto
-```
-
-### Dart / FLutter
-
-Has to be downloaded from [`infinimesh/proto`](https://github.com/infinimesh/proto), you can copy the whole [`build/dart`](https://github.com/infinimesh/proto/tree/master/build/dart) dir into your Flutter project
 
 ## CLI
 
@@ -158,83 +149,3 @@ Then see usage [usage](#usage)
 ### Build From Source
 
 See [CLI repo](https://github.com/infinimesh/inf) for source and instructions.
-
-## Development
-
-### Local development installation
-
-We have built an automated local development setup based on Docker.
-
-1. Add this entries to `/etc/hosts`:
-
-  ```hosts
-  127.0.0.1 api.infinimesh.local 
-  127.0.0.1 console.infinimesh.local
-  127.0.0.1 traefik.infinimesh.local
-  127.0.0.1 rbmq.infinimesh.local
-  127.0.0.1 db.infinimesh.local
-  127.0.0.1 media.infinimesh.local
-  127.0.0.1 mqtt.infinimesh.local
-  ```
-
-2. Clone this repo via `git clone https://github.com/infinimesh/infinimesh.git` 
-3. cd into the fresh cloned repo
-4. Run `docker compose up`
-
-Swagger API: https://infinimesh.github.io/infinimesh/
-
-### Generating proto files
-
-Clone [proto repo](https://github.com/infinimesh/proto)
-
-Navigate to cloned repo directory and run:
-
-```shell
-docker run -it \
-  -v $(pwd):/go/src/github.com/infinimesh/proto \
-  ghcr.io/infinimesh/proto/buf:latest
-```
-
-Right now we keep protos generated only for Go. If you need one of the other languages, add according module to `buf.gen.yaml`.
-
-PRs are as always welcome.
-
-### Mocks
-
-infinimesh is using [mockery](https://vektra.github.io/mockery). To generate mocks it is recommended to use Docker image:
-
-```shell
-docker pull vektra/mockery
-docker run -v "$PWD":/src -w /src vektra/mockery --all
-```
-
-Otherwise just get the `mockery` binary and run it at the root of the project.
-
-### Local Development
-
-Start the local dev environment via `docker compose up -d`.
-
-Login locally via CLI:
-
-```shell
-inf login api.infinimesh.local infinimesh infinimesh --insecure
-```
-
-Access the Console at <http://console.infinimesh.local>
-
-## License
-
-Copyright 2018 - 2025 the infinimesh committers, 2pk03, birdayz, slntopp and The Infinite AI Audio GmbH team
-
-Licensed under the Apache License, Version 2.0 (the "Licenses"); you may not use
-this file except in compliance with the License. You may obtain a copy of the License at
-
-  [https://github.com/infinimesh/infinimesh/blob/master/LICENSE](https://github.com/infinimesh/infinimesh/blob/master/LICENSE)
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-The authors of infinimesh are The Infinite AI Audio GmbH, [birdayz](https://github.com/birdayz), [2pk03](https://github.com/2pk03) and [slntopp](https://github.com/slntopp), all rights reserved.
