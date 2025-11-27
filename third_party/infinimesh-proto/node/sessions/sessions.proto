@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package infinimesh.node.sessions;
+
+option go_package = "github.com/infinimesh/proto/node/sessions";
+
+import "google/protobuf/timestamp.proto";
+
+message Session {
+  string id = 1;
+  google.protobuf.Timestamp created = 2;
+  google.protobuf.Timestamp expires = 3;
+  string client = 4;
+  optional bool current = 5;
+}
+
+message Sessions {
+  repeated Session sessions = 1;
+}
+
+message Activity {
+  map<string, google.protobuf.Timestamp> last_seen = 1;
+}
