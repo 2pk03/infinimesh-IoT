@@ -14,8 +14,11 @@ Our APIs (REST / gRPC / ConnectRPC) are considered beta and may change. Infinime
 
 ## Documentation
 
-- [Wiki](https://github.com/infinimesh/infinimesh/wiki)
-- Swagger UI (published via GitHub Pages)
+The old wiki was removed; see `docs/` in this repo:
+
+- docs/installation.md — prerequisites and Docker Compose quickstart
+- docs/device-auth.md — device tokens/certs and MQTT usage
+- API schema: `api.swagger.json`
 
 ## Build status
 
@@ -46,6 +49,60 @@ We vendor the protobuf module and ship generated Go stubs. Generate clients for 
 You can reach out to the community via Discord.
 
 ![](http://invidget.switchblade.xyz/801798988163448832)
+
+## Quickstart (Docker Compose)
+
+- Prereqs: Docker + Docker Compose. `BASE_DOMAIN` (from `.env`) is the root host used for all services (e.g., `console.${BASE_DOMAIN}`, `api.${BASE_DOMAIN}`). Default is `infinimesh.local`; change it to something that resolves to your machine (e.g., `127.0.0.1.nip.io`) to avoid editing `/etc/hosts`.
+- Hostnames: the stack expects `console.${BASE_DOMAIN}`, `api.${BASE_DOMAIN}`, `traefik.${BASE_DOMAIN}`, `db.${BASE_DOMAIN}`, `rbmq.${BASE_DOMAIN}`, and `media.${BASE_DOMAIN}` to resolve to your host. For a quick local run with the default `infinimesh.local`, add them to `/etc/hosts`.
+- Start the platform: `docker compose up -d` (images come from GHCR; set `INFINIMESH_VERSION` in `.env` to pin a release).
+- Access:
+  - Console UI: http://console.${BASE_DOMAIN}
+  - API (gRPC/Connect/REST): http://api.${BASE_DOMAIN}
+  - Traefik dashboard: http://traefik.${BASE_DOMAIN}
+  - ArangoDB UI: http://db.${BASE_DOMAIN}
+  - RabbitMQ management: http://rbmq.${BASE_DOMAIN}
+- Default credentials (change these for anything beyond local testing):
+  - Platform admin: user `root`, password from `INF_DEFAULT_ROOT_PASS` (`infinimesh` by default in `.env`/`docker-compose.yaml`).
+  - ArangoDB: user `root`, password `openSesame` (see `docker-compose.yaml`).
+  - RabbitMQ: user/password from `.env` (`infinimesh` / `infinimesh` by default).
+- MQTT endpoints: 1883 (plain), 8883 (TLS using `hack/server.crt`/`server.key`). Use the tokens issued via the console/CLI to authenticate clients.
+
+### CLI Walkthrough (inf)
+
+Install the CLI from https://github.com/infinimesh/inf (or prebuilt package), then:
+
+```bash
+# point the CLI at the local stack (h2c on port 8000)
+API=http://api.${BASE_DOMAIN}:8000
+
+# 1) Login as root (default password is INF_DEFAULT_ROOT_PASS from .env)
+inf login --api ${API} --username root --password infinimesh --insecure
+
+# 2) Create and switch to a namespace
+inf namespaces create demo --title "Demo"
+inf namespaces use demo
+
+# 3) Create a device and issue a token for it
+inf devices create demo-sensor
+inf devices token demo-sensor --name local --scopes shadow:rw > demo-sensor.token
+
+# 4) Set shadow state via CLI (reported example)
+inf shadow set demo-sensor --reported '{"online":true,"temp":21.5}'
+inf shadow get demo-sensor
+
+# 5) Use the issued token for MQTT
+mosquitto_pub -h api.${BASE_DOMAIN} -p 1883 \
+  -u demo-sensor -P "$(cat demo-sensor.token)" \
+  -t shadow/devices/demo-sensor/desired \
+  -m '{"reboot":true}'
+
+Notes:
+- The CLI now accepts `--api` as a URL or host; it defaults missing ports to `:8000`, which matches the repo service exposed by Traefik.
+- MQTT flags support bearer-style auth (`--device-id/--device-token`) in addition to basic auth or certs; the default topic template is `shadow/devices/%s/desired` where `%s` is replaced by the device ID.
+```
+
+Run `inf help` and `inf <command> --help` if your CLI version uses slightly different flags; the flow above is the expected minimal path: login, pick a namespace, create device, get a token, set/query shadow, and bridge over MQTT.
+
 
 ## CLI
 

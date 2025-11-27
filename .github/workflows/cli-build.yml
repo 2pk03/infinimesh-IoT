@@ -1,0 +1,73 @@
+name: CLI Build
+
+on:
+  push:
+    tags: ["v*"]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: auto
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            ext: ""
+          - goos: linux
+            goarch: arm64
+            ext: ""
+          - goos: windows
+            goarch: amd64
+            ext: ".exe"
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+
+    defaults:
+      run:
+        working-directory: inf-cli
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: inf-cli/go.mod
+          check-latest: true
+          cache: true
+
+      - name: Show Go env
+        run: go env
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build CLI
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          mkdir -p dist
+          go build -o dist/inf-${GOOS}-${GOARCH}${{ matrix.ext }} ./...
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: inf-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: inf-cli/dist/inf-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}

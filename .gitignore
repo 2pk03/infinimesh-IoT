@@ -16,3 +16,9 @@ CronJobs/bkp.yaml
 # Ignore auto-generated coverage files
 cover.out
 cover.html
+
+# Local dev artifacts
+.home
+*.bin
+inf-cli/inf
+inf-cli/inf.exe
