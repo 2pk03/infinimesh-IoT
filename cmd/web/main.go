@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -75,27 +76,15 @@ func main() {
 
 	log.Info("Starting REST-API Server")
 	log.Info("Registering Endpoints", zap.String("server", apiserver))
-	var err error
+
+	tlsConfig, err := buildTLSConfig(secure, caFile, log)
+	if err != nil {
+		log.Fatal("Failed to configure TLS for API server", zap.Error(err))
+	}
 
 	gwmux := runtime.NewServeMux()
 	creds := insecure.NewCredentials()
-	if secure {
-		tlsConfig := &tls.Config{
-			MinVersion: tls.VersionTLS12,
-		}
-
-		if caFile != "" {
-			caData, err := os.ReadFile(caFile)
-			if err != nil {
-				log.Fatal("Failed to read APISERVER CA file", zap.String("file", caFile), zap.Error(err))
-			}
-			cp := x509.NewCertPool()
-			if !cp.AppendCertsFromPEM(caData) {
-				log.Fatal("Failed to append CA certificate", zap.String("file", caFile))
-			}
-			tlsConfig.RootCAs = cp
-		}
-
+	if tlsConfig != nil {
 		creds = credentials.NewTLS(tlsConfig)
 	}
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
@@ -170,4 +159,30 @@ func main() {
 
 	log.Info("Serving gRPC-Gateway on http://0.0.0.0:8000")
 	log.Fatal("Failed to Listen and Serve Gateway-Server", zap.Error(http.ListenAndServe(":8000", wsproxy.WebsocketProxy(handler))))
+}
+
+func buildTLSConfig(secure bool, caFile string, log *zap.Logger) (*tls.Config, error) {
+	if !secure {
+		return nil, nil
+	}
+
+	cfg := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+
+	if caFile == "" {
+		return cfg, nil
+	}
+
+	caData, err := os.ReadFile(caFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read APISERVER CA file %s: %w", caFile, err)
+	}
+	cp := x509.NewCertPool()
+	if !cp.AppendCertsFromPEM(caData) {
+		return nil, fmt.Errorf("failed to append CA certificate from %s", caFile)
+	}
+	cfg.RootCAs = cp
+
+	return cfg, nil
 }

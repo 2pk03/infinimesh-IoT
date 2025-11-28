@@ -1,17 +1,28 @@
 version: "3.8"
 services:
 
+  # Optional auto-updater for production deployments (opt-in via profiles)
+  watchtower:
+    image: containrrr/watchtower
+    command: --interval 30 --cleanup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    profiles: ["prod"]
+
   proxy:
     image: traefik:2.10.4
     labels:
       - traefik.http.routers.api.rule=Host(`traefik.${BASE_DOMAIN}`)
-      - traefik.http.routers.api.entrypoints=http
+      - traefik.http.routers.api.entrypoints=https
+      - traefik.http.routers.api.tls.certresolver=letsencrypt
       - traefik.http.routers.api.service=api@internal
     ports:
       - 80:80
+      - 443:443
       - 8000:8000
     volumes:
       - ./traefik.yml:/traefik.yml
+      - ./letsencrypt:/etc/traefik/acme
       - /var/run/docker.sock:/var/run/docker.sock
 
   console:
@@ -22,7 +33,8 @@ services:
       - web
     labels:
       - traefik.http.routers.console.rule=Host(`console.${BASE_DOMAIN}`)
-      - traefik.http.routers.console.entrypoints=http
+      - traefik.http.routers.console.entrypoints=https
+      - traefik.http.routers.console.tls.certresolver=letsencrypt
       - traefik.http.routers.console.service=console@docker
       - traefik.http.services.console.loadbalancer.server.port=80
   web:
@@ -33,25 +45,34 @@ services:
       - proxy
     labels:
       - traefik.http.routers.web.rule=Host(`api.${BASE_DOMAIN}`)
-      - traefik.http.routers.web.entrypoints=http
+      - traefik.http.routers.web.entrypoints=https
+      - traefik.http.routers.web.tls.certresolver=letsencrypt
       - traefik.http.routers.web.service=web@docker
       - traefik.http.services.web.loadbalancer.server.port=8000
     environment:
       APISERVER_HOST: repo:8000
-      HTTP_FS: "http://media.${BASE_DOMAIN}"
+      # Optional CA for TLS between web and repo; leave empty for insecure
+      APISERVER_CA_FILE: /cert/tls.crt
+      HTTP_FS: "https://media.${BASE_DOMAIN}"
       HANDSFREE: handsfree:8000
+    volumes:
+      - ./hack/server.crt:/cert/tls.crt:ro
 
   rabbitmq:
     image: rabbitmq:3.9-management
     labels:
       - traefik.http.routers.rabbitmq.rule=Host(`rbmq.${BASE_DOMAIN}`)
-      - traefik.http.routers.rabbitmq.entrypoints=http
+      - traefik.http.routers.rabbitmq.entrypoints=https
+      - traefik.http.routers.rabbitmq.tls.certresolver=letsencrypt
       - traefik.http.services.rabbitmq.loadbalancer.server.port=15672
     ports:
      - 5672:5672
     environment:
       RABBITMQ_DEFAULT_USER: "${RABBITMQ_USER}"
       RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASS}"
+    volumes:
+      - rbmq_data:/var/lib/rabbitmq
+      - rbmq_log:/var/log/rabbitmq
 
   mqtt:
     image: "ghcr.io/infinimesh/infinimesh/mqtt-bridge:${INFINIMESH_VERSION}"
@@ -85,7 +106,8 @@ services:
       - traefik.http.services.repo.loadbalancer.server.scheme=h2c
 
       - traefik.http.routers.repo_connect.rule=Host(`api.${BASE_DOMAIN}`)&&PathPrefix("/infinimesh.node.", "/infinimesh.shadow", "/infinimesh.plugins", "/oauth")
-      - traefik.http.routers.repo_connect.entrypoints=http
+      - traefik.http.routers.repo_connect.entrypoints=https
+      - traefik.http.routers.repo_connect.tls.certresolver=letsencrypt
       - traefik.http.routers.repo_connect.service=repo_connect@docker
       - traefik.http.services.repo_connect.loadbalancer.server.port=8000
 
@@ -138,7 +160,8 @@ services:
       ARANGO_ROOT_PASSWORD: openSesame
     labels:
       - traefik.http.routers.db.rule=Host(`db.${BASE_DOMAIN}`)
-      - traefik.http.routers.db.entrypoints=http
+      - traefik.http.routers.db.entrypoints=https
+      - traefik.http.routers.db.tls.certresolver=letsencrypt
       - traefik.http.services.db.loadbalancer.server.port=8529
     volumes:
       - data:/var/lib/arangodb3
@@ -149,7 +172,8 @@ services:
     restart: always
     labels:
       - traefik.http.routers.http-fs.rule=Host(`media.${BASE_DOMAIN}`)
-      - traefik.http.routers.http-fs.entrypoints=http
+      - traefik.http.routers.http-fs.entrypoints=https
+      - traefik.http.routers.http-fs.tls.certresolver=letsencrypt
       - traefik.http.services.http-fs.loadbalancer.server.port=8000
     volumes:
       - user-media:/static
@@ -170,3 +194,5 @@ services:
 volumes:
   data:
   user-media:
+  rbmq_data:
+  rbmq_log:
