@@ -64,7 +64,9 @@ jobs:
           CGO_ENABLED: 0
         run: |
           mkdir -p dist
-          go build -o dist/inf-${GOOS}-${GOARCH}${{ matrix.ext }} ./...
+          # Build the single CLI binary (not the whole module tree) to avoid
+          # multi-package output errors on Windows
+          go build -o dist/inf-${GOOS}-${GOARCH}${{ matrix.ext }} .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
