@@ -206,3 +206,61 @@ Then see usage [usage](#usage)
 ### Build From Source
 
 See [CLI repo](https://github.com/infinimesh/inf) for source and instructions.
+
+## Architecture Deep Dive
+
+Infinimesh implements the patterns I describe in my IoT platform architecture guide. It's the open-source reference for teams building production IoT backends.
+
+**Full guide:** [IoT Platform Architecture Leadership](https://www.novatechflow.com/p/iot-platform-architecture-leadership.html)
+
+### Why IoT Platforms Fail
+
+Most IoT projects underestimate what "connect some devices" actually requires at scale:
+
+| Challenge | What Goes Wrong |
+|-----------|-----------------|
+| Identity | Weak provisioning, no revocation, credential leakage |
+| State management | No single source of truth (digital twin) |
+| Protocol diversity | MQTT, CoAP, Modbus handled as one-offs |
+| Command & control | Designed like REST APIs, not distributed systems |
+| Multi-tenancy | No isolation between customers or fleets |
+
+### What Infinimesh Provides
+```
+Devices (MQTT 3/5, TLS 1.2/1.3)
+        │
+        ▼
+┌───────────────────────────────────┐
+│         Infinimesh Core           │
+├───────────────────────────────────┤
+│  Device Registry (identity, PKI)  │
+│  Digital Twin (shadow/state sync) │
+│  Graph-based ACL (fine-grained)   │
+│  Multi-tenant by design           │
+└───────────────────────────────────┘
+        │
+        ▼
+  REST / gRPC / ConnectRPC APIs
+        │
+        ▼
+  Kafka → Flink → Iceberg (optional)
+```
+
+### Key Capabilities
+
+- **Device identity** — x509 certs, JWT tokens, secure provisioning
+- **Digital twins** — structured contracts for state, commands, telemetry
+- **Graph-based permissions** — fine-grained access across tenants
+- **Protocol abstraction** — MQTT 3 & 5 with TLS, extensible to others
+- **No vendor lock-in** — runs on Kubernetes or Docker Compose
+
+### Origin
+
+I co-founded Infinimesh, merged it with Infinite Devices, and continue to maintain it. The platform reflects years of learning from production IoT deployments.
+
+---
+
+**Building or scaling an IoT platform?**
+
+→ [Consulting Services](https://www.novatechflow.com/p/consulting-services.html)  
+→ [Book a call](https://cal.com/alexanderalten)
